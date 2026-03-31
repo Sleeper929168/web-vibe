@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<!--
+Created using JS Bin
+http://jsbin.com
+
+Copyright (c) 2026 by anonymous (http://jsbin.com/kiqihiduwi/2/edit)
+
+Released under the MIT license: http://jsbin.mit-license.org
+-->
+<meta name="robots" content="noindex">
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>健身運動倒數計時器 - 自定義組數版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+
+        :root {
+            --bg-color: #0f172a;
+            --work-color: #22d3ee;
+            --rest-color: #fbbf24;
+            --text-color: #f8fafc;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'JetBrains+Mono', 'PingFang TC', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .timer-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .circle-svg {
+            transform: rotate(-90deg);
+        }
+
+        .circle-bg {
+            fill: none;
+            stroke: rgba(255, 255, 255, 0.05);
+            stroke-width: 8;
+        }
+
+        .circle-progress {
+            fill: none;
+            stroke-width: 8;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 0.1s linear, stroke 0.3s ease;
+        }
+
+        .work-active {
+            stroke: var(--work-color);
+            filter: drop-shadow(0 0 8px var(--work-color));
+        }
+
+        .rest-active {
+            stroke: var(--rest-color);
+            filter: drop-shadow(0 0 8px var(--rest-color));
+        }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 1.5rem;
+        }
+
+        .btn {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+        }
+
+        .btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        /* 數字輸入框樣式 */
+        .cycle-input {
+            background: transparent;
+            border: none;
+            color: white;
+            text-align: center;
+            width: 80px;
+            outline: none;
+            border-bottom: 2px solid transparent;
+            transition: border-color 0.3s;
+        }
+
+        .cycle-input:focus:not(:disabled) {
+            border-bottom-color: var(--work-color);
+        }
+
+        .cycle-input:disabled {
+            cursor: default;
+        }
+
+        /* 隱藏 Input Number 的箭頭 */
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.8; }
+        }
+
+        .active-phase {
+            animation: pulse 2s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="max-w-xl w-full p-6 text-center">
+        <!-- 頂部計時圓圈區域 -->
+        <div class="timer-container mb-12">
+            <!-- 40s 運動主圓圈 -->
+            <div id="workCircle" class="relative inline-block">
+                <svg class="circle-svg" width="240" height="240">
+                    <circle class="circle-bg" cx="120" cy="120" r="110"></circle>
+                    <circle id="workProgress" class="circle-progress work-active" cx="120" cy="120" r="110" stroke-dasharray="691" stroke-dashoffset="0"></circle>
+                </svg>
+                <div class="absolute inset-0 flex flex-col items-center justify-center">
+                    <span class="text-xs uppercase tracking-widest text-slate-400 mb-1">運動</span>
+                    <span id="workTimerText" class="text-6xl font-bold">40</span>
+                </div>
+            </div>
+
+            <!-- 5s 休息次圓圈 -->
+            <div id="restCircle" class="relative inline-block mt-12">
+                <svg class="circle-svg" width="120" height="120">
+                    <circle class="circle-bg" cx="60" cy="60" r="52"></circle>
+                    <circle id="restProgress" class="circle-progress" cx="60" cy="60" r="52" stroke-dasharray="327" stroke-dashoffset="327"></circle>
+                </svg>
+                <div class="absolute inset-0 flex flex-col items-center justify-center">
+                    <span class="text-[10px] uppercase tracking-widest text-slate-400">休息</span>
+                    <span id="restTimerText" class="text-2xl font-bold">05</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 循環進度條與組數設定 -->
+        <div class="glass-panel py-4 px-8 mb-10 flex items-center justify-between">
+            <span class="text-slate-400 text-sm tracking-widest">目標組數 (1-100)</span>
+            <div class="flex items-center gap-2">
+                <span id="currentCycleDisplay" class="text-3xl font-bold tracking-tighter text-cyan-400">01</span>
+                <span class="text-xl text-slate-600">/</span>
+                <input type="number" id="totalCyclesInput" value="17" min="1" max="100" class="cycle-input text-3xl font-bold tracking-tighter">
+            </div>
+        </div>
+
+        <!-- 控制按鈕 -->
+        <div class="grid grid-cols-2 gap-4">
+            <button id="mainBtn" class="btn glass-panel bg-white/10 hover:bg-white/20 py-6 flex items-center justify-center gap-3">
+                <div id="playIcon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                </div>
+                <div id="pauseIcon" class="hidden">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                </div>
+                <span id="mainBtnText" class="text-xl font-bold">開始</span>
+            </button>
+            
+            <button id="resetBtn" disabled class="btn glass-panel bg-red-500/10 hover:bg-red-500/20 text-red-400 py-6 flex items-center justify-center gap-3">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                <span class="text-xl font-bold">重置</span>
+            </button>
+        </div>
+
+        <!-- 狀態提示 -->
+        <div id="statusMsg" class="mt-8 text-slate-500 text-sm h-6 tracking-widest uppercase">READY</div>
+    </div>
+
+    <script>
+        // 設定常數
+        const WORK_TIME = 40;
+        const REST_TIME = 5;
+
+        // 狀態變數
+        let cycle = 1;
+        let totalCycles = 17;
+        let phase = 'work'; // 'work' or 'rest'
+        let timeLeft = WORK_TIME;
+        let isRunning = false;
+        let timer = null;
+
+        // 音效系統
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function playSound(frequency, type, duration, volume = 0.1) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            oscillator.type = type;
+            oscillator.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+            gainNode.gain.setValueAtTime(volume, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + duration);
+        }
+
+        const sounds = {
+            workStart: () => playSound(880, 'sine', 0.5, 0.2),
+            restStart: () => playSound(440, 'triangle', 0.8, 0.2),
+            tick: () => playSound(660, 'sine', 0.1, 0.1),
+            finish: () => {
+                playSound(523.25, 'sine', 0.3);
+                setTimeout(() => playSound(659.25, 'sine', 0.3), 150);
+                setTimeout(() => playSound(783.99, 'sine', 0.6), 300);
+            }
+        };
+
+        // DOM 元素
+        const mainBtn = document.getElementById('mainBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const mainBtnText = document.getElementById('mainBtnText');
+        const playIcon = document.getElementById('playIcon');
+        const pauseIcon = document.getElementById('pauseIcon');
+        const totalCyclesInput = document.getElementById('totalCyclesInput');
+        const currentCycleDisplay = document.getElementById('currentCycleDisplay');
+        
+        const workTimerText = document.getElementById('workTimerText');
+        const restTimerText = document.getElementById('restTimerText');
+        const workProgress = document.getElementById('workProgress');
+        const restProgress = document.getElementById('restProgress');
+        const statusMsg = document.getElementById('statusMsg');
+        const workCircle = document.getElementById('workCircle');
+        const restCircle = document.getElementById('restCircle');
+
+        const workDash = 691;
+        const restDash = 327;
+
+        // 驗證組數輸入
+        totalCyclesInput.addEventListener('change', (e) => {
+            let val = parseInt(e.target.value);
+            if (isNaN(val) || val < 1) val = 1;
+            if (val > 100) val = 100;
+            e.target.value = val;
+            totalCycles = val;
+        });
+
+        function toggleTimer() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            if (isRunning) {
+                pauseTimer();
+            } else {
+                startTimer();
+            }
+        }
+
+        function startTimer() {
+            isRunning = true;
+            resetBtn.disabled = false;
+            totalCyclesInput.disabled = true; // 計時中鎖定輸入框
+            mainBtnText.innerText = '暫停';
+            playIcon.classList.add('hidden');
+            pauseIcon.classList.remove('hidden');
+            statusMsg.innerText = phase === 'work' ? 'GO GO GO!' : 'REST';
+            
+            if (timeLeft === (phase === 'work' ? WORK_TIME : REST_TIME)) {
+                phase === 'work' ? sounds.workStart() : sounds.restStart();
+            }
+
+            timer = setInterval(() => {
+                timeLeft--;
+                if (timeLeft >= 0 && timeLeft <= 2) sounds.tick();
+                if (timeLeft < 0) switchPhase();
+                updateUI();
+            }, 1000);
+        }
+
+        function pauseTimer() {
+            isRunning = false;
+            clearInterval(timer);
+            mainBtnText.innerText = '開始';
+            playIcon.classList.remove('hidden');
+            pauseIcon.classList.add('hidden');
+            statusMsg.innerText = 'PAUSED';
+        }
+
+        function switchPhase() {
+            if (phase === 'work') {
+                phase = 'rest';
+                timeLeft = REST_TIME;
+                statusMsg.innerText = 'REST';
+                sounds.restStart();
+            } else {
+                if (cycle < totalCycles) {
+                    cycle++;
+                    phase = 'work';
+                    timeLeft = WORK_TIME;
+                    statusMsg.innerText = 'GO!';
+                    sounds.workStart();
+                } else {
+                    complete();
+                }
+            }
+        }
+
+        function complete() {
+            clearInterval(timer);
+            isRunning = false;
+            statusMsg.innerText = 'WORKOUT COMPLETE!';
+            mainBtn.disabled = true;
+            mainBtnText.innerText = 'DONE';
+            sounds.finish();
+        }
+
+        function resetTimer() {
+            pauseTimer();
+            cycle = 1;
+            phase = 'work';
+            timeLeft = WORK_TIME;
+            mainBtn.disabled = false;
+            resetBtn.disabled = true;
+            totalCyclesInput.disabled = false; // 重置後恢復輸入框
+            statusMsg.innerText = 'RESET';
+            updateUI();
+        }
+
+        function updateUI() {
+            currentCycleDisplay.innerText = String(cycle).padStart(2, '0');
+            
+            if (phase === 'work') {
+                workCircle.classList.add('active-phase');
+                restCircle.classList.remove('active-phase');
+                workTimerText.innerText = String(timeLeft).padStart(2, '0');
+                restTimerText.innerText = String(REST_TIME).padStart(2, '0');
+                
+                const offset = workDash - (timeLeft / WORK_TIME) * workDash;
+                workProgress.style.strokeDashoffset = offset;
+                workProgress.classList.add('work-active');
+                restProgress.style.strokeDashoffset = restDash;
+                restProgress.classList.remove('rest-active');
+            } else {
+                workCircle.classList.remove('active-phase');
+                restCircle.classList.add('active-phase');
+                workTimerText.innerText = "00";
+                restTimerText.innerText = String(timeLeft).padStart(2, '0');
+                
+                const offset = restDash - (timeLeft / REST_TIME) * restDash;
+                restProgress.style.strokeDashoffset = offset;
+                restProgress.classList.add('rest-active');
+                workProgress.style.strokeDashoffset = workDash;
+                workProgress.classList.remove('work-active');
+            }
+        }
+
+        mainBtn.addEventListener('click', toggleTimer);
+        resetBtn.addEventListener('click', resetTimer);
+
+        updateUI();
+    </script>
+</body>
+</html>

@@ -3,7 +3,7 @@
 Created using JS Bin
 http://jsbin.com
 
-Copyright (c) 2026 by anonymous (http://jsbin.com/kiqihiduwi/2/edit)
+Copyright (c) 2026 by anonymous (http://jsbin.com/kiqihiduwi/3/edit)
 
 Released under the MIT license: http://jsbin.mit-license.org
 -->
@@ -12,7 +12,7 @@ Released under the MIT license: http://jsbin.mit-license.org
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>健身運動倒數計時器 - 自定義組數版</title>
+    <title>健身運動倒數計時器 - 完賽慶祝版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
@@ -21,6 +21,7 @@ Released under the MIT license: http://jsbin.mit-license.org
             --bg-color: #0f172a;
             --work-color: #22d3ee;
             --rest-color: #fbbf24;
+            --fire-color: #f97316; /* 橘紅色 */
             --text-color: #f8fafc;
         }
 
@@ -91,7 +92,6 @@ Released under the MIT license: http://jsbin.mit-license.org
             cursor: not-allowed;
         }
 
-        /* 數字輸入框樣式 */
         .cycle-input {
             background: transparent;
             border: none;
@@ -107,11 +107,6 @@ Released under the MIT license: http://jsbin.mit-license.org
             border-bottom-color: var(--work-color);
         }
 
-        .cycle-input:disabled {
-            cursor: default;
-        }
-
-        /* 隱藏 Input Number 的箭頭 */
         input::-webkit-outer-spin-button,
         input::-webkit-inner-spin-button {
             -webkit-appearance: none;
@@ -123,29 +118,72 @@ Released under the MIT license: http://jsbin.mit-license.org
             50% { transform: scale(1.05); opacity: 0.8; }
         }
 
+        @keyframes blink {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.2; transform: scale(0.95); }
+        }
+
         .active-phase {
             animation: pulse 2s infinite ease-in-out;
+        }
+
+        .blink-animation {
+            animation: blink 1s infinite ease-in-out;
+        }
+        
+        .hidden-icon {
+            display: none;
+        }
+
+        /* 火焰圖示發光效果 */
+        .fire-glow {
+            filter: drop-shadow(0 0 10px var(--fire-color));
         }
     </style>
 </head>
 <body>
 
+    <!-- SVG Symbols 定義 -->
+    <svg style="display: none;">
+        <symbol id="icon-move-up" viewBox="0 0 32 32">
+            <path d="M22 16v12h2v-12h5l-6-6-6 6z"></path>
+            <path d="M2 6h3v2h-3v-2z"></path>
+            <path d="M6 6h3v2h-3v-2z"></path>
+            <path d="M10 6h2v3h-2v-3z"></path>
+            <path d="M2 13h2v3h-2v-3z"></path>
+            <path d="M5 14h3v2h-3v-2z"></path>
+            <path d="M9 14h3v2h-3v-2z"></path>
+            <path d="M2 9h2v3h-2v-3z"></path>
+            <path d="M10 10h2v3h-2v-3z"></path>
+            <path d="M10 22v6h-6v-6h6zM12 20h-10v10h10v-10z"></path>
+        </symbol>
+        <!-- 新增：火焰圖示 -->
+        <symbol id="icon-fire" viewBox="0 0 32 32">
+            <path d="M10.031 32c-2.133-4.438-0.997-6.981 0.642-9.376 1.795-2.624 2.258-5.221 2.258-5.221s1.411 1.834 0.847 4.703c2.493-2.775 2.963-7.196 2.587-8.889 5.635 3.938 8.043 12.464 4.798 18.783 17.262-9.767 4.294-24.38 2.036-26.027 0.753 1.646 0.895 4.433-0.625 5.785-2.573-9.759-8.937-11.759-8.937-11.759 0.753 5.033-2.728 10.536-6.084 14.648-0.118-2.007-0.243-3.392-1.298-5.312-0.237 3.646-3.023 6.617-3.777 10.27-1.022 4.946 0.765 8.568 7.555 12.394z"></path>
+        </symbol>
+    </svg>
+
     <div class="max-w-xl w-full p-6 text-center">
         <!-- 頂部計時圓圈區域 -->
         <div class="timer-container mb-12">
-            <!-- 40s 運動主圓圈 -->
+            <!-- 運動主圓圈 -->
             <div id="workCircle" class="relative inline-block">
                 <svg class="circle-svg" width="240" height="240">
                     <circle class="circle-bg" cx="120" cy="120" r="110"></circle>
                     <circle id="workProgress" class="circle-progress work-active" cx="120" cy="120" r="110" stroke-dasharray="691" stroke-dashoffset="0"></circle>
                 </svg>
                 <div class="absolute inset-0 flex flex-col items-center justify-center">
-                    <span class="text-xs uppercase tracking-widest text-slate-400 mb-1">運動</span>
+                    <span id="workLabel" class="text-xs uppercase tracking-widest text-slate-400 mb-1">運動</span>
                     <span id="workTimerText" class="text-6xl font-bold">40</span>
+                    
+                    <!-- 動態切換圖示容器 -->
+                    <svg id="statusIcon" class="w-12 h-12 mt-1 transition-all duration-500" fill="currentColor">
+                        <use id="iconUse" xlink:href="#icon-move-up"></use>
+                    </svg>
                 </div>
             </div>
 
-            <!-- 5s 休息次圓圈 -->
+            <!-- 休息次圓圈 -->
             <div id="restCircle" class="relative inline-block mt-12">
                 <svg class="circle-svg" width="120" height="120">
                     <circle class="circle-bg" cx="60" cy="60" r="52"></circle>
@@ -158,7 +196,7 @@ Released under the MIT license: http://jsbin.mit-license.org
             </div>
         </div>
 
-        <!-- 循環進度條與組數設定 -->
+        <!-- 循環設定 -->
         <div class="glass-panel py-4 px-8 mb-10 flex items-center justify-between">
             <span class="text-slate-400 text-sm tracking-widest">目標組數 (1-100)</span>
             <div class="flex items-center gap-2">
@@ -168,7 +206,7 @@ Released under the MIT license: http://jsbin.mit-license.org
             </div>
         </div>
 
-        <!-- 控制按鈕 -->
+        <!-- 按鈕 -->
         <div class="grid grid-cols-2 gap-4">
             <button id="mainBtn" class="btn glass-panel bg-white/10 hover:bg-white/20 py-6 flex items-center justify-center gap-3">
                 <div id="playIcon">
@@ -186,24 +224,21 @@ Released under the MIT license: http://jsbin.mit-license.org
             </button>
         </div>
 
-        <!-- 狀態提示 -->
         <div id="statusMsg" class="mt-8 text-slate-500 text-sm h-6 tracking-widest uppercase">READY</div>
     </div>
 
     <script>
-        // 設定常數
         const WORK_TIME = 40;
         const REST_TIME = 5;
 
-        // 狀態變數
         let cycle = 1;
         let totalCycles = 17;
-        let phase = 'work'; // 'work' or 'rest'
+        let phase = 'work'; 
         let timeLeft = WORK_TIME;
         let isRunning = false;
+        let isComplete = false; // 新增：完賽狀態
         let timer = null;
 
-        // 音效系統
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         
         function playSound(frequency, type, duration, volume = 0.1) {
@@ -231,7 +266,6 @@ Released under the MIT license: http://jsbin.mit-license.org
             }
         };
 
-        // DOM 元素
         const mainBtn = document.getElementById('mainBtn');
         const resetBtn = document.getElementById('resetBtn');
         const mainBtnText = document.getElementById('mainBtnText');
@@ -239,7 +273,6 @@ Released under the MIT license: http://jsbin.mit-license.org
         const pauseIcon = document.getElementById('pauseIcon');
         const totalCyclesInput = document.getElementById('totalCyclesInput');
         const currentCycleDisplay = document.getElementById('currentCycleDisplay');
-        
         const workTimerText = document.getElementById('workTimerText');
         const restTimerText = document.getElementById('restTimerText');
         const workProgress = document.getElementById('workProgress');
@@ -247,11 +280,13 @@ Released under the MIT license: http://jsbin.mit-license.org
         const statusMsg = document.getElementById('statusMsg');
         const workCircle = document.getElementById('workCircle');
         const restCircle = document.getElementById('restCircle');
+        const statusIcon = document.getElementById('statusIcon');
+        const iconUse = document.getElementById('iconUse');
+        const workLabel = document.getElementById('workLabel');
 
         const workDash = 691;
         const restDash = 327;
 
-        // 驗證組數輸入
         totalCyclesInput.addEventListener('change', (e) => {
             let val = parseInt(e.target.value);
             if (isNaN(val) || val < 1) val = 1;
@@ -272,7 +307,7 @@ Released under the MIT license: http://jsbin.mit-license.org
         function startTimer() {
             isRunning = true;
             resetBtn.disabled = false;
-            totalCyclesInput.disabled = true; // 計時中鎖定輸入框
+            totalCyclesInput.disabled = true;
             mainBtnText.innerText = '暫停';
             playIcon.classList.add('hidden');
             pauseIcon.classList.remove('hidden');
@@ -297,6 +332,7 @@ Released under the MIT license: http://jsbin.mit-license.org
             playIcon.classList.remove('hidden');
             pauseIcon.classList.add('hidden');
             statusMsg.innerText = 'PAUSED';
+            updateUI();
         }
 
         function switchPhase() {
@@ -321,10 +357,12 @@ Released under the MIT license: http://jsbin.mit-license.org
         function complete() {
             clearInterval(timer);
             isRunning = false;
+            isComplete = true; // 設定為完賽狀態
             statusMsg.innerText = 'WORKOUT COMPLETE!';
             mainBtn.disabled = true;
             mainBtnText.innerText = 'DONE';
             sounds.finish();
+            updateUI();
         }
 
         function resetTimer() {
@@ -332,9 +370,10 @@ Released under the MIT license: http://jsbin.mit-license.org
             cycle = 1;
             phase = 'work';
             timeLeft = WORK_TIME;
+            isComplete = false;
             mainBtn.disabled = false;
             resetBtn.disabled = true;
-            totalCyclesInput.disabled = false; // 重置後恢復輸入框
+            totalCyclesInput.disabled = false;
             statusMsg.innerText = 'RESET';
             updateUI();
         }
@@ -342,7 +381,31 @@ Released under the MIT license: http://jsbin.mit-license.org
         function updateUI() {
             currentCycleDisplay.innerText = String(cycle).padStart(2, '0');
             
+            // 處理完賽後的圖示變換
+            if (isComplete) {
+                iconUse.setAttribute('xlink:href', '#icon-fire');
+                statusIcon.classList.remove('hidden-icon', 'blink-animation', 'text-cyan-400');
+                statusIcon.classList.add('text-orange-600', 'fire-glow'); // 橘紅色並發光
+                workLabel.innerText = "完成";
+                workTimerText.innerText = "00";
+                workProgress.style.strokeDashoffset = 0;
+                return;
+            } else {
+                // 重置時恢復原始圖示
+                iconUse.setAttribute('xlink:href', '#icon-move-up');
+                statusIcon.classList.remove('text-orange-600', 'fire-glow');
+                statusIcon.classList.add('text-cyan-400');
+                workLabel.innerText = "運動";
+            }
+
             if (phase === 'work') {
+                statusIcon.classList.remove('hidden-icon');
+                if (isRunning) {
+                    statusIcon.classList.add('blink-animation');
+                } else {
+                    statusIcon.classList.remove('blink-animation');
+                }
+
                 workCircle.classList.add('active-phase');
                 restCircle.classList.remove('active-phase');
                 workTimerText.innerText = String(timeLeft).padStart(2, '0');
@@ -354,6 +417,9 @@ Released under the MIT license: http://jsbin.mit-license.org
                 restProgress.style.strokeDashoffset = restDash;
                 restProgress.classList.remove('rest-active');
             } else {
+                statusIcon.classList.add('hidden-icon');
+                statusIcon.classList.remove('blink-animation');
+
                 workCircle.classList.remove('active-phase');
                 restCircle.classList.add('active-phase');
                 workTimerText.innerText = "00";
